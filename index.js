@@ -5,6 +5,7 @@ import { UnrealBloomPass } from 'three/examples/jsm/Addons.js';
 import { OutputPass } from 'three/examples/jsm/Addons.js';
 import { GUI } from 'dat.gui';
 
+//--------INITIALIZATION--------//
 const FFTSIZE = 512;
 
 const scene = new THREE.Scene();
@@ -99,7 +100,7 @@ const lightRight = new THREE.PointLight(
 const CUBE_SIZE = (FFTSIZE / 2 / camera.getFilmWidth()) * 0.3;
 const BARS_GAP = 0;
 const cubeGeometry = new THREE.BoxGeometry(CUBE_SIZE, CUBE_SIZE, CUBE_SIZE);
-const cubeMaterial = new THREE.MeshStandardMaterial();
+const cubeMaterial = new THREE.MeshLambertMaterial();
 const cubes = [];
 for (let i = 0; i < FFTSIZE; i++) {
   cubes.push(new THREE.Mesh(cubeGeometry, cubeMaterial));
@@ -147,6 +148,7 @@ const listener = new THREE.AudioListener();
 camera.add(listener);
 const audio = new THREE.Audio(listener);
 const analyser = new THREE.AudioAnalyser(audio, FFTSIZE);
+//--------INITIALIZATION--------//
 
 //--------EVENTS--------//
 window.addEventListener('mousemove', (e) => {
