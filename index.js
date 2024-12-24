@@ -180,9 +180,17 @@ window.addEventListener('wheel', (e) => {
   }
 });
 
+// For PC
 window.addEventListener('keydown', (e) => {
   if (e.code === 'Space' && audio.source && audio.isPlaying) audio.pause();
   else if (e.code === 'Space' && audio.source && !audio.isPlaying) audio.play();
+});
+
+// For Mobile
+window.addEventListener('touchstart', (e) => {
+  if (e.touches.length === 2 && audio.source && audio.isPlaying) audio.pause();
+  else if (e.touches.length === 2 && audio.source && !audio.isPlaying)
+    audio.play();
 });
 
 window.addEventListener('resize', () => {
