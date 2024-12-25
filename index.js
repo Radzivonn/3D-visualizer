@@ -6,7 +6,31 @@ import { OutputPass } from 'three/examples/jsm/Addons.js';
 import { GUI } from 'dat.gui';
 
 //--------INITIALIZATION--------//
-const FFTSIZE = 512;
+
+//--------setting based on device performance--------//
+
+// settings for PC
+const performanceSettings = {
+  FFTSIZE: 512,
+  CUBE_SIZE_K: 0.3,
+  BARS_SIZE_SCALE: 0.5,
+  cameraZ: 550,
+};
+
+const userAgent = navigator.userAgent;
+const isMobile =
+  /Mobile|Android|iPhone|iPad|iPod|Opera Mini|IEMobile|WPDesktop/i.test(
+    userAgent,
+  );
+
+// setting for Mobile for better performance
+if (isMobile) {
+  performanceSettings.FFTSIZE = 128;
+  performanceSettings.BARS_SIZE_SCALE = 0.2;
+  performanceSettings.cameraZ = 40.18;
+}
+
+//--------setting based on device performance--------//
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(
@@ -43,7 +67,6 @@ composer.addPass(bloomPass);
 composer.addPass(outputPass);
 
 let DROP_THRESHOLD = 110;
-let BARS_SIZE_SCALE = 0.5;
 const COLOR_THRESHOLD = 1; // minimum frequency to trigger the color function
 
 const getColorByAverageFrequency = (bar, averageFrequency, isPlaying) => {
@@ -97,12 +120,14 @@ const lightRight = new THREE.PointLight(
   LIGHT_DISTANCE,
 );
 
-const CUBE_SIZE = (FFTSIZE / 2 / camera.getFilmWidth()) * 0.3;
+const CUBE_SIZE =
+  (performanceSettings.FFTSIZE / 2 / camera.getFilmWidth()) *
+  performanceSettings.CUBE_SIZE_K;
 const BARS_GAP = 0;
 const cubeGeometry = new THREE.BoxGeometry(CUBE_SIZE, CUBE_SIZE, CUBE_SIZE);
 const cubeMaterial = new THREE.MeshLambertMaterial();
 const cubes = [];
-for (let i = 0; i < FFTSIZE; i++) {
+for (let i = 0; i < performanceSettings.FFTSIZE; i++) {
   cubes.push(new THREE.Mesh(cubeGeometry, cubeMaterial));
 }
 
@@ -120,7 +145,7 @@ for (let i = 0; i < cubes.length; i++) {
 camera.position.set(
   cubes[Math.round(cubes.length / 2)].position.x,
   cubes[Math.round(cubes.length / 2)].position.y,
-  550,
+  performanceSettings.cameraZ,
 );
 lightTop.position.set(
   cubes[Math.round(cubes.length / 2)].position.x,
@@ -147,10 +172,12 @@ scene.add(lightTop, lightBottom, lightLeft, lightRight);
 const listener = new THREE.AudioListener();
 camera.add(listener);
 const audio = new THREE.Audio(listener);
-const analyser = new THREE.AudioAnalyser(audio, FFTSIZE);
+const analyser = new THREE.AudioAnalyser(audio, performanceSettings.FFTSIZE);
+
 //--------INITIALIZATION--------//
 
 //--------EVENTS--------//
+
 window.addEventListener('mousemove', (e) => {
   // if right mouse button clicked and mouse moving move camera along (x y) coordinates
   if (e.buttons === 2) {
@@ -201,9 +228,11 @@ window.addEventListener('resize', () => {
   composer.setSize(window.innerWidth, window.innerHeight);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 });
+
 //--------EVENTS--------//
 
 //--------ANIMATION--------//
+
 function animate() {
   const frequencyData = analyser.getFrequencyData();
   const averageFrequency = analyser.getAverageFrequency();
@@ -222,23 +251,29 @@ function animate() {
 
     // left half
     cubes[i].scale.y =
-      CUBE_SIZE + frequencyData[frequencyData.length - i - 1] * BARS_SIZE_SCALE;
+      CUBE_SIZE +
+      frequencyData[frequencyData.length - i - 1] *
+        performanceSettings.BARS_SIZE_SCALE;
     cubes[i].scale.z =
-      CUBE_SIZE + frequencyData[frequencyData.length - i - 1] * BARS_SIZE_SCALE;
+      CUBE_SIZE +
+      frequencyData[frequencyData.length - i - 1] *
+        performanceSettings.BARS_SIZE_SCALE;
 
     // right half
     cubes[i + cubes.length / 2].scale.y =
-      CUBE_SIZE + frequencyData[i] * BARS_SIZE_SCALE;
+      CUBE_SIZE + frequencyData[i] * performanceSettings.BARS_SIZE_SCALE;
     cubes[i + cubes.length / 2].scale.z =
-      CUBE_SIZE + frequencyData[i] * BARS_SIZE_SCALE;
+      CUBE_SIZE + frequencyData[i] * performanceSettings.BARS_SIZE_SCALE;
   }
 
   composer.render();
 }
 renderer.setAnimationLoop(animate);
+
 //--------ANIMATION--------//
 
 //--------GUI--------//
+
 const gui = new GUI();
 
 const audioInput = document.createElement('input');
@@ -289,7 +324,7 @@ const durationRange = fileFolder.add(audioParams, 'offset', 0).name('Duration');
 
 const effectsParams = {
   dropThreshold: DROP_THRESHOLD,
-  barsSizeScale: BARS_SIZE_SCALE,
+  barsSizeScale: performanceSettings.BARS_SIZE_SCALE,
 };
 const effectsFolder = gui.addFolder('Effects');
 effectsFolder
@@ -302,7 +337,7 @@ effectsFolder
   .add(effectsParams, 'barsSizeScale', 0, 1)
   .name('bars size scale')
   .onChange((value) => {
-    BARS_SIZE_SCALE = value;
+    performanceSettings.BARS_SIZE_SCALE = value;
   });
 
 const toneMappingFolder = gui.addFolder('Tone mapping');
@@ -333,4 +368,5 @@ bloomFolder.add(bloomPassParams, 'radius', 0, 2).onChange((value) => {
 bloomFolder.add(bloomPassParams, 'threshold', 0, 1).onChange((value) => {
   bloomPass.threshold = Number(value);
 });
+
 //--------GUI--------//
