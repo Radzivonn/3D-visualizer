@@ -13,7 +13,7 @@ import { GUI } from 'dat.gui';
 const performanceSettings = {
   FFTSIZE: 512,
   CUBE_SIZE_K: 0.3,
-  BARS_SIZE_SCALE: 0.5,
+  BARS_SIZE_SCALE: 0.55,
   cameraZ: 550,
 };
 
@@ -40,7 +40,7 @@ const camera = new THREE.PerspectiveCamera(
   2000,
 );
 
-const CAMERA_ZOOM_BOUNDARY = [0, 800];
+const CAMERA_ZOOM_BOUNDARY = [0, 1000];
 
 const renderer = new THREE.WebGLRenderer();
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -67,6 +67,7 @@ composer.addPass(bloomPass);
 composer.addPass(outputPass);
 
 let DROP_THRESHOLD = 110;
+let PULSATION = 0.001;
 const COLOR_THRESHOLD = 1; // minimum frequency to trigger the color function
 
 const getColorByAverageFrequency = (bar, averageFrequency, isPlaying) => {
@@ -120,15 +121,67 @@ const lightRight = new THREE.PointLight(
   LIGHT_DISTANCE,
 );
 
+const particlesCount = 8000;
+const particlesGeometry = new THREE.BufferGeometry();
+const positions = new Float32Array(particlesCount * 3);
+for (let i = 0; i < particlesCount * 3; i++) {
+  positions[i] = (Math.random() - 0.5) * 2;
+}
+particlesGeometry.setAttribute(
+  'position',
+  new THREE.Float32BufferAttribute(positions, 3),
+);
+const pointsMaterial = new THREE.PointsMaterial({
+  size: 2,
+  color: 'blue',
+});
+const particles = new THREE.Points(particlesGeometry, pointsMaterial);
+particles.scale.x = 2000;
+particles.scale.y = 1000;
+particles.scale.z = 1000;
+particles.position.x += 500;
+scene.add(particles);
+
 const CUBE_SIZE =
   (performanceSettings.FFTSIZE / 2 / camera.getFilmWidth()) *
   performanceSettings.CUBE_SIZE_K;
 const BARS_GAP = 0;
-const cubeGeometry = new THREE.BoxGeometry(CUBE_SIZE, CUBE_SIZE, CUBE_SIZE);
-const cubeMaterial = new THREE.MeshLambertMaterial();
+
+const cubesParticlesCount = 10;
+const cubesParticlesGeometry = new THREE.BufferGeometry();
+const cubesParticlesPositions = new Float32Array(cubesParticlesCount * 3 * 2);
+
+const gridSize = Math.cbrt(cubesParticlesCount * 2);
+const spacing = 2 / (gridSize - 1);
+
+let index = 0;
+for (let x = 0; x < gridSize; x++) {
+  for (let y = 0; y < gridSize; y++) {
+    for (let z = 0; z < gridSize; z++) {
+      if (index >= cubesParticlesCount * 2) break;
+      // grid placement from -1 to 1
+      cubesParticlesPositions[index * 3] = x * spacing - 1;
+      cubesParticlesPositions[index * 3 + 1] = y * spacing - 1;
+      cubesParticlesPositions[index * 3 + 2] = z * spacing - 1;
+      // grid arrangement from -0.5 to 0.5
+      cubesParticlesPositions[index * 3 + 3] = x * spacing * 0.5 - 0.5;
+      cubesParticlesPositions[index * 3 + 4] = y * spacing * 0.5 - 0.5;
+      cubesParticlesPositions[index * 3 + 5] = z * spacing * 0.5 - 0.5;
+      index += 2;
+    }
+  }
+}
+
+cubesParticlesGeometry.setAttribute(
+  'position',
+  new THREE.Float32BufferAttribute(cubesParticlesPositions, 3),
+);
+const cubeMaterial = new THREE.PointsMaterial({
+  size: 5,
+});
 const cubes = [];
 for (let i = 0; i < performanceSettings.FFTSIZE; i++) {
-  cubes.push(new THREE.Mesh(cubeGeometry, cubeMaterial));
+  cubes.push(new THREE.Points(cubesParticlesGeometry, cubeMaterial));
 }
 
 const startColor = getColorByAverageFrequency(cubes[0], 20, true);
@@ -244,27 +297,52 @@ function animate() {
     audio.isPlaying,
   );
 
+  /* ANIMATE PARTICLES */
+  particles.material.color = barColor;
+
+  particles.position.z = averageFrequency * averageFrequency * PULSATION;
+  const d = particles.position.z > 0 ? -1 : 1;
+  particles.scale.x = 2000 - Math.pow(particles.position.z, 2) * 0.005 * d;
+  particles.scale.y = 1000 - Math.pow(particles.position.z, 2) * 0.005 * d;
+  particles.scale.z = 1000 - Math.pow(particles.position.z, 2) * 0.005 * d;
+
+  if (averageFrequency >= DROP_THRESHOLD) {
+    particles.position.x += Math.random() > 0.5 ? 1 : -1;
+    particles.position.y += Math.random() > 0.5 ? 1 : -1;
+  } else if (audio.isPlaying) {
+    particles.position.x += Math.random() > 0.5 ? 0.2 : -0.2;
+    particles.position.y += Math.random() > 0.5 ? 0.2 : -0.2;
+  }
+  /* ANIMATE PARTICLES */
+
+  /* ANIMATE BARS */
   for (let i = 0; i < frequencyData.length; i++) {
     cubes[i].material.setValues({
       color: barColor,
     });
 
-    // left half
-    cubes[i].scale.y =
-      CUBE_SIZE +
-      frequencyData[frequencyData.length - i - 1] *
-        performanceSettings.BARS_SIZE_SCALE;
-    cubes[i].scale.z =
+    let y =
       CUBE_SIZE +
       frequencyData[frequencyData.length - i - 1] *
         performanceSettings.BARS_SIZE_SCALE;
 
+    let z =
+      CUBE_SIZE +
+      frequencyData[frequencyData.length - i - 1] *
+        performanceSettings.BARS_SIZE_SCALE;
+
+    // left half
+    cubes[i].scale.y = y;
+    cubes[i].scale.z = z;
+
+    y = CUBE_SIZE + frequencyData[i] * performanceSettings.BARS_SIZE_SCALE;
+    z = CUBE_SIZE + frequencyData[i] * performanceSettings.BARS_SIZE_SCALE;
+
     // right half
-    cubes[i + cubes.length / 2].scale.y =
-      CUBE_SIZE + frequencyData[i] * performanceSettings.BARS_SIZE_SCALE;
-    cubes[i + cubes.length / 2].scale.z =
-      CUBE_SIZE + frequencyData[i] * performanceSettings.BARS_SIZE_SCALE;
+    cubes[i + cubes.length / 2].scale.y = y;
+    cubes[i + cubes.length / 2].scale.z = z;
   }
+  /* ANIMATE BARS */
 
   composer.render();
 }
@@ -325,6 +403,7 @@ const durationRange = fileFolder.add(audioParams, 'offset', 0).name('Duration');
 const effectsParams = {
   dropThreshold: DROP_THRESHOLD,
   barsSizeScale: performanceSettings.BARS_SIZE_SCALE,
+  pulsation: PULSATION / 0.001,
 };
 const effectsFolder = gui.addFolder('Effects');
 effectsFolder
@@ -338,6 +417,12 @@ effectsFolder
   .name('bars size scale')
   .onChange((value) => {
     performanceSettings.BARS_SIZE_SCALE = value;
+  });
+effectsFolder
+  .add(effectsParams, 'pulsation', -2, 2)
+  .name('pulsation')
+  .onChange((value) => {
+    PULSATION = value * 0.001;
   });
 
 const toneMappingFolder = gui.addFolder('Tone mapping');
