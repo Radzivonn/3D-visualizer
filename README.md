@@ -1,11 +1,7 @@
 # [Audio visualizer](https://radzivonn.github.io/3D-visualizer) on three js
 
 ## Overview
-![image](https://github.com/user-attachments/assets/0b9fd71f-f051-45b1-b54e-39bfe1f4adce)
-
-![image](https://github.com/user-attachments/assets/03447aa7-7ff5-4e55-b24f-00893c8f9cf3)
-
-Drop(drop threshold adjusts the "red" trigger threshold): ![image](https://github.com/user-attachments/assets/115f5b84-0426-46b8-9dd8-d0cb63063e30)
+![image](https://github.com/user-attachments/assets/594139d5-5fa9-4d75-9d14-b23cfc8e6b6f)
 
 ## Settings
 ![image](https://github.com/user-attachments/assets/72f767ff-cd78-4a84-a019-47b0da06764a)
@@ -30,3 +26,9 @@ Drop(drop threshold adjusts the "red" trigger threshold): ![image](https://githu
 * Spacebar (for PC) or tap with two fingers on the screen (for mobile devices) - pause audio
 
 Remark: On mobile devices the visualizer “resolution” is automatically reduced for better performance and sufficient FPS. FFTSIZE decreases from 512 to 128
+
+## Stack
+* Vanilla JS
+* [Vite](https://vite.dev)
+* [Three JS](https://threejs.org)
+* [Dat GUI](https://github.com/dataarts/dat.gui)
