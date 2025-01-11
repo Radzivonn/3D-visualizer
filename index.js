@@ -14,6 +14,8 @@ const performanceSettings = {
   FFTSIZE: 512,
   CUBE_SIZE_K: 0.3,
   BARS_SIZE_SCALE: 0.55,
+  BARS_PARTICLES_COUNT: 10,
+  BARS_PARTICLES_SIZE: 5,
   cameraZ: 550,
 };
 
@@ -25,9 +27,10 @@ const isMobile =
 
 // setting for Mobile for better performance
 if (isMobile) {
-  performanceSettings.FFTSIZE = 128;
-  performanceSettings.BARS_SIZE_SCALE = 0.2;
-  performanceSettings.cameraZ = 40.18;
+  performanceSettings.FFTSIZE = 256;
+  performanceSettings.BARS_SIZE_SCALE = 0.15;
+  performanceSettings.BARS_PARTICLES_SIZE = 1;
+  performanceSettings.cameraZ = 135;
 }
 
 //--------setting based on device performance--------//
@@ -147,7 +150,7 @@ const CUBE_SIZE =
   performanceSettings.CUBE_SIZE_K;
 const BARS_GAP = 0;
 
-const cubesParticlesCount = 10;
+const cubesParticlesCount = performanceSettings.BARS_PARTICLES_COUNT;
 const cubesParticlesGeometry = new THREE.BufferGeometry();
 const cubesParticlesPositions = new Float32Array(cubesParticlesCount * 3 * 2);
 
@@ -171,14 +174,15 @@ for (let x = 0; x < gridSize; x++) {
     }
   }
 }
-
 cubesParticlesGeometry.setAttribute(
   'position',
   new THREE.Float32BufferAttribute(cubesParticlesPositions, 3),
 );
+
 const cubeMaterial = new THREE.PointsMaterial({
-  size: 5,
+  size: performanceSettings.BARS_PARTICLES_SIZE,
 });
+
 const cubes = [];
 for (let i = 0; i < performanceSettings.FFTSIZE; i++) {
   cubes.push(new THREE.Points(cubesParticlesGeometry, cubeMaterial));
