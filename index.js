@@ -12,8 +12,8 @@ import { GUI } from 'dat.gui';
 // settings for PC
 const performanceSettings = {
   FFTSIZE: 512,
-  CUBE_SIZE_K: 0.3,
-  BARS_SIZE_SCALE: 0.55,
+  CUBE_SIZE_K: 0.4,
+  BARS_SIZE_SCALE: 0.6,
   BARS_PARTICLES_COUNT: 10,
   BARS_PARTICLES_SIZE: 5,
   cameraZ: 550,
@@ -28,6 +28,7 @@ const isMobile =
 // setting for Mobile for better performance
 if (isMobile) {
   performanceSettings.FFTSIZE = 256;
+  performanceSettings.CUBE_SIZE_K = 0.3;
   performanceSettings.BARS_SIZE_SCALE = 0.15;
   performanceSettings.BARS_PARTICLES_SIZE = 1;
   performanceSettings.cameraZ = 135;
@@ -408,6 +409,7 @@ const effectsParams = {
   dropThreshold: DROP_THRESHOLD,
   barsSizeScale: performanceSettings.BARS_SIZE_SCALE,
   pulsation: PULSATION / 0.001,
+  smoothing: 0.8,
 };
 const effectsFolder = gui.addFolder('Effects');
 effectsFolder
@@ -427,6 +429,11 @@ effectsFolder
   .name('pulsation')
   .onChange((value) => {
     PULSATION = value * 0.001;
+  });
+effectsFolder
+  .add(effectsParams, 'smoothing', 0, 0.99, 0.01)
+  .onChange((value) => {
+    analyser.analyser.smoothingTimeConstant = value;
   });
 
 const toneMappingFolder = gui.addFolder('Tone mapping');
