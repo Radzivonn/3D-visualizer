@@ -70,8 +70,9 @@ composer.addPass(renderScene);
 composer.addPass(bloomPass);
 composer.addPass(outputPass);
 
+let startTime = 0; // for player
 let DROP_THRESHOLD = 110;
-let PULSATION = 0.001;
+let PULSATION = 0.0005;
 const COLOR_THRESHOLD = 1; // minimum frequency to trigger the color function
 
 const getColorByAverageFrequency = (bar, averageFrequency, isPlaying) => {
@@ -234,6 +235,74 @@ const analyser = new THREE.AudioAnalyser(audio, performanceSettings.FFTSIZE);
 
 //--------INITIALIZATION--------//
 
+//--------FUNCTIONS--------//
+
+const audioControls = {
+  play: function () {
+    if (!audio.isPlaying) resumeAudio();
+  },
+  pause: function () {
+    if (audio.isPlaying) pauseAudio();
+  },
+  stop: function () {
+    audio.stop();
+    startTime = 0;
+  },
+  seek: 0,
+  currentTime: '0:00',
+  duration: '0:00',
+};
+
+const pauseAudio = () => {
+  audio.pause();
+  audio.context.suspend();
+  startTime = audio.context.currentTime - startTime;
+};
+
+const resumeAudio = () => {
+  playFrom(startTime);
+  audio.context.resume();
+};
+
+const playFrom = (time) => {
+  audio.stop();
+  audio.source = audio.context.createBufferSource();
+  audio.source.buffer = audio.buffer;
+  audio.source.connect(audio.gain);
+  audio.source.loop = true;
+
+  startTime = audio.context.currentTime - time;
+
+  audio.source.start(0, time);
+  audio.isPlaying = true;
+};
+
+const formatTime = (time) => {
+  const minutes = Math.floor(time / 60);
+  const seconds = Math.floor(time % 60);
+  return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+};
+
+const updateUI = () => {
+  if (audio.buffer) {
+    const currentTime = audio.context.currentTime - startTime;
+
+    if (currentTime >= audio.buffer.duration) {
+      startTime = audio.context.currentTime;
+      audioControls.currentTime = '0:00';
+      audioControls.seek = 0;
+      seekController.updateDisplay();
+    } else if (currentTime && audio.isPlaying) {
+      const time = formatTime(currentTime);
+      audioControls.currentTime = time;
+      audioControls.seek = (currentTime / audio.buffer.duration) * 100;
+      seekController.updateDisplay();
+    }
+  }
+};
+
+//--------FUNCTIONS--------//
+
 //--------EVENTS--------//
 
 window.addEventListener('mousemove', (e) => {
@@ -267,15 +336,18 @@ window.addEventListener('wheel', (e) => {
 
 // For PC
 window.addEventListener('keydown', (e) => {
-  if (e.code === 'Space' && audio.source && audio.isPlaying) audio.pause();
-  else if (e.code === 'Space' && audio.source && !audio.isPlaying) audio.play();
+  if (e.code === 'Space' && audio.source && audio.isPlaying) pauseAudio();
+  else if (e.code === 'Space' && audio.source && !audio.isPlaying)
+    resumeAudio();
 });
 
 // For Mobile
 window.addEventListener('touchstart', (e) => {
-  if (e.touches.length === 2 && audio.source && audio.isPlaying) audio.pause();
-  else if (e.touches.length === 2 && audio.source && !audio.isPlaying)
-    audio.play();
+  if (e.touches.length === 2 && audio.source && audio.isPlaying) {
+    pauseAudio();
+  } else if (e.touches.length === 2 && audio.source && !audio.isPlaying) {
+    resumeAudio();
+  }
 });
 
 window.addEventListener('resize', () => {
@@ -311,7 +383,7 @@ function animate() {
   particles.scale.y = 1000 - Math.pow(particles.position.z, 2) * 0.005 * d;
   particles.scale.z = 1000 - Math.pow(particles.position.z, 2) * 0.005 * d;
 
-  if (averageFrequency >= DROP_THRESHOLD) {
+  if (averageFrequency >= DROP_THRESHOLD && audio.isPlaying) {
     particles.position.x += Math.random() > 0.5 ? 1 : -1;
     particles.position.y += Math.random() > 0.5 ? 1 : -1;
   } else if (audio.isPlaying) {
@@ -349,6 +421,7 @@ function animate() {
   }
   /* ANIMATE BARS */
 
+  updateUI();
   composer.render();
 }
 renderer.setAnimationLoop(animate);
@@ -364,19 +437,6 @@ audioInput.type = 'file';
 audioInput.accept = 'audio/*';
 audioInput.style.display = 'none';
 
-const audioParams = {
-  offset: 0,
-};
-
-const getAudioOffset = () => {
-  return audio.isPlaying ? audio.context.currentTime - audio.startTime : 0;
-};
-
-setInterval(() => {
-  durationRange.setValue(Math.floor(getAudioOffset()));
-  durationRange.updateDisplay();
-}, 1000);
-
 audioInput.addEventListener('change', (e) => {
   const file = e.target.files[0];
   if (file) {
@@ -386,14 +446,16 @@ audioInput.addEventListener('change', (e) => {
     const url = URL.createObjectURL(file);
     const audioLoader = new THREE.AudioLoader();
     audioLoader.load(url, (buffer) => {
+      audioControls.duration = formatTime(buffer.duration);
       audio.setBuffer(buffer);
       audio.setLoop(true);
+      audio.setVolume(1);
       audio.play();
     });
 
-    audio.setBuffer(file);
     filePickerController.name(file.name);
     audio.startTime = audio.context.currentTime;
+    startTime = audio.context.currentTime;
   }
 });
 document.body.appendChild(audioInput);
@@ -402,8 +464,6 @@ const fileFolder = gui.addFolder('Audio');
 const filePickerController = fileFolder
   .add({ click: () => audioInput.click() }, 'click')
   .name('Choose file');
-
-const durationRange = fileFolder.add(audioParams, 'offset', 0).name('Duration');
 
 const effectsParams = {
   dropThreshold: DROP_THRESHOLD,
@@ -464,5 +524,24 @@ bloomFolder.add(bloomPassParams, 'radius', 0, 2).onChange((value) => {
 bloomFolder.add(bloomPassParams, 'threshold', 0, 1).onChange((value) => {
   bloomPass.threshold = Number(value);
 });
+
+const controlsFolder = gui.addFolder('Controls');
+
+controlsFolder.add(audioControls, 'play').name('Play');
+controlsFolder.add(audioControls, 'pause').name('Pause');
+controlsFolder.add(audioControls, 'stop').name('Stop');
+
+const seekController = controlsFolder
+  .add(audioControls, 'seek', 0, 100)
+  .onChange((value) => {
+    if (audio.buffer) {
+      const time = (value / 100) * audio.buffer.duration;
+      if (audio.isPlaying) playFrom(time);
+    }
+  })
+  .name('Progress(%)');
+
+controlsFolder.add(audioControls, 'currentTime').name('Current Time').listen();
+controlsFolder.add(audioControls, 'duration').name('Duration').listen();
 
 //--------GUI--------//
