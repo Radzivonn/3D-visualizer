@@ -73,6 +73,7 @@ composer.addPass(outputPass);
 let startTime = 0; // for player
 let DROP_THRESHOLD = 110;
 let PULSATION = 0.0005;
+let isDynamicBloomOn = true;
 const COLOR_THRESHOLD = 1; // minimum frequency to trigger the color function
 
 const getColorByAverageFrequency = (bar, averageFrequency, isPlaying) => {
@@ -374,6 +375,12 @@ function animate() {
     audio.isPlaying,
   );
 
+  /* ANIMATE BLOOM AND MAPPING EXPOSURE */
+  if (audio.isPlaying && isDynamicBloomOn) {
+    bloomPass.strength = averageFrequency * 0.00225;
+    renderer.toneMappingExposure = averageFrequency * 0.007;
+  }
+
   /* ANIMATE PARTICLES */
   particles.material.color = barColor;
 
@@ -470,6 +477,7 @@ const effectsParams = {
   barsSizeScale: performanceSettings.BARS_SIZE_SCALE,
   pulsation: PULSATION / 0.001,
   smoothing: 0.8,
+  dynamicBloom: isDynamicBloomOn, // Dynamic changing bloom and mapping exposure frequency dependent
 };
 const effectsFolder = gui.addFolder('Effects');
 effectsFolder
@@ -494,6 +502,12 @@ effectsFolder
   .add(effectsParams, 'smoothing', 0, 0.99, 0.01)
   .onChange((value) => {
     analyser.analyser.smoothingTimeConstant = value;
+  });
+effectsFolder
+  .add(effectsParams, 'dynamicBloom')
+  .name('Dynamic bloom')
+  .onChange((value) => {
+    isDynamicBloomOn = value;
   });
 
 const toneMappingFolder = gui.addFolder('Tone mapping');
