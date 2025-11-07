@@ -74,6 +74,7 @@ let startTime = 0; // for player
 let DROP_THRESHOLD = 110;
 let PULSATION = 0.0005;
 let isDynamicBloomOn = true;
+let isEqualizerReversed = false;
 const COLOR_THRESHOLD = 1; // minimum frequency to trigger the color function
 
 const getColorByAverageFrequency = (bar, averageFrequency, isPlaying) => {
@@ -415,16 +416,18 @@ function animate() {
       frequencyData[frequencyData.length - i - 1] *
         performanceSettings.BARS_SIZE_SCALE;
 
+    const currentIndex = isEqualizerReversed ? frequencyData.length - i - 1 : i;
+
     // left half
-    cubes[i].scale.y = y;
-    cubes[i].scale.z = z;
+    cubes[currentIndex].scale.y = y;
+    cubes[currentIndex].scale.z = z;
 
     y = CUBE_SIZE + frequencyData[i] * performanceSettings.BARS_SIZE_SCALE;
     z = CUBE_SIZE + frequencyData[i] * performanceSettings.BARS_SIZE_SCALE;
 
     // right half
-    cubes[i + cubes.length / 2].scale.y = y;
-    cubes[i + cubes.length / 2].scale.z = z;
+    cubes[currentIndex + cubes.length / 2].scale.y = y;
+    cubes[currentIndex + cubes.length / 2].scale.z = z;
   }
   /* ANIMATE BARS */
 
@@ -473,13 +476,26 @@ const filePickerController = fileFolder
   .name('Choose file');
 
 const effectsParams = {
+  reverseEqualizer: isEqualizerReversed,
+  dynamicBloom: isDynamicBloomOn, // Dynamic changing bloom and mapping exposure frequency dependent
   dropThreshold: DROP_THRESHOLD,
   barsSizeScale: performanceSettings.BARS_SIZE_SCALE,
   pulsation: PULSATION / 0.001,
   smoothing: 0.8,
-  dynamicBloom: isDynamicBloomOn, // Dynamic changing bloom and mapping exposure frequency dependent
 };
 const effectsFolder = gui.addFolder('Effects');
+effectsFolder
+  .add(effectsParams, 'reverseEqualizer')
+  .name('Reverse Equalizer')
+  .onChange((value) => {
+    isEqualizerReversed = value;
+  });
+effectsFolder
+  .add(effectsParams, 'dynamicBloom')
+  .name('Dynamic bloom')
+  .onChange((value) => {
+    isDynamicBloomOn = value;
+  });
 effectsFolder
   .add(effectsParams, 'dropThreshold', 0, 200, 1)
   .name('drop threshold')
@@ -502,12 +518,6 @@ effectsFolder
   .add(effectsParams, 'smoothing', 0, 0.99, 0.01)
   .onChange((value) => {
     analyser.analyser.smoothingTimeConstant = value;
-  });
-effectsFolder
-  .add(effectsParams, 'dynamicBloom')
-  .name('Dynamic bloom')
-  .onChange((value) => {
-    isDynamicBloomOn = value;
   });
 
 const toneMappingFolder = gui.addFolder('Tone mapping');
