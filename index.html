@@ -6,7 +6,7 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, user-scalable=no"
     />
-    <link href="index.css" rel="stylesheet" />
+    <link href="./src/index.css" rel="stylesheet" />
     <title>3D Visualizer</title>
   </head>
   <body></body>
@@ -107,13 +107,7 @@
 
     uniform float u_time;
     uniform float u_frequency;
-    uniform float u_pulseSpeed; // Скорость пульсации
-    uniform float u_pulseIntensity; // Интенсивность пульсации
-
     uniform float u_kickThreshold; // Порог для "ударов"
-
-    uniform float u_baseScale; // Масштаб базового шума
-    uniform float u_detailScale; // Масштаб детального шума
 
     void main() {
       // Базовый шум
@@ -144,5 +138,6 @@
         gl_FragColor = vec4(vec3(u_red, u_green, u_blue), 1. );
     }
   </script>
-  <script src="./index.js" type="module"></script>
+  <!-- <script src="./src/particleSystem.js" type="module"></script> -->
+  <script src="./src/index.js" type="module"></script>
 </html>

@@ -4,7 +4,7 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
 import { UnrealBloomPass } from 'three/examples/jsm/Addons.js';
 import { OutputPass } from 'three/examples/jsm/Addons.js';
 import { GUI } from 'dat.gui';
-import { getParticleSystem } from './getParticleSystem.js';
+import { getParticleSystem } from './particleSystem.js';
 
 //--------INITIALIZATION--------//
 
@@ -133,7 +133,7 @@ const particles = getParticleSystem({
   camera,
   parent: scene,
   rate: 80.0,
-  texture: 'img/circle.png',
+  texture: './src/assets/circle.png',
 });
 
 //--------INITIALIZATION--------//
