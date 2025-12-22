@@ -4,6 +4,7 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
 import { UnrealBloomPass } from 'three/examples/jsm/Addons.js';
 import { OutputPass } from 'three/examples/jsm/Addons.js';
 import { GUI } from 'dat.gui';
+import { getParticleSystem } from './getParticleSystem.js';
 
 //--------INITIALIZATION--------//
 
@@ -12,11 +13,6 @@ import { GUI } from 'dat.gui';
 // settings for PC
 const performanceSettings = {
   FFTSIZE: 512,
-  CUBE_SIZE_K: 0.4,
-  BARS_SIZE_SCALE: 0.6,
-  BARS_PARTICLES_COUNT: 10,
-  BARS_PARTICLES_SIZE: 5,
-  cameraZ: 550,
 };
 
 const userAgent = navigator.userAgent;
@@ -28,10 +24,7 @@ const isMobile =
 // setting for Mobile for better performance
 if (isMobile) {
   performanceSettings.FFTSIZE = 256;
-  performanceSettings.CUBE_SIZE_K = 0.3;
-  performanceSettings.BARS_SIZE_SCALE = 0.15;
   performanceSettings.BARS_PARTICLES_SIZE = 1;
-  performanceSettings.cameraZ = 135;
 }
 
 //--------setting based on device performance--------//
@@ -41,10 +34,13 @@ const camera = new THREE.PerspectiveCamera(
   75,
   window.innerWidth / window.innerHeight,
   0.1,
-  2000,
+  4000,
 );
 
-const CAMERA_ZOOM_BOUNDARY = [0, 1000];
+camera.position.set(0, -2, 20);
+camera.lookAt(0, 0, 0);
+
+const CAMERA_ZOOM_BOUNDARY = [0, 32]; // !!!
 
 const renderer = new THREE.WebGLRenderer();
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -70,21 +66,23 @@ composer.addPass(renderScene);
 composer.addPass(bloomPass);
 composer.addPass(outputPass);
 
-let startTime = 0; // for player
-let DROP_THRESHOLD = 110;
-let PULSATION = 0.0005;
+let AudioStartTime = 0; // for player
+let DROP_THRESHOLD = 200;
+let PARTICLES_SPEED = 1.0;
+let PULSATION = 2.0;
 let isDynamicBloomOn = true;
-let isEqualizerReversed = false;
+let isDynamicEqualizerColorOn = true;
+let isDynamicParticlesColorOn = true;
 const COLOR_THRESHOLD = 1; // minimum frequency to trigger the color function
 
-const getColorByAverageFrequency = (bar, averageFrequency, isPlaying) => {
+const getColorByAverageFrequency = (color, averageFrequency, isPlaying) => {
   if (averageFrequency >= COLOR_THRESHOLD && isPlaying) {
-    const k = averageFrequency >= DROP_THRESHOLD ? 0.12 : 0.03;
+    const k = averageFrequency >= DROP_THRESHOLD ? 0.12 : 0.025;
     const r = averageFrequency * k;
-    const b = 1 / (averageFrequency * 0.003);
-    return { ...bar.material.color, r, b };
+    const b = 1 / (averageFrequency * 0.002);
+    return { ...color, r, b };
   }
-  return bar.material.color;
+  return color;
 };
 
 const toneMappingParams = {
@@ -104,136 +102,39 @@ renderer.toneMapping =
   toneMappingParams.toneMappingOptions[toneMappingParams.toneMapping];
 renderer.toneMappingExposure = toneMappingParams.toneMappingExposure;
 
-const LIGHT_INTENSITY = 150000;
-const LIGHT_DISTANCE = 1000;
-
-const lightTop = new THREE.PointLight(
-  0xffffff,
-  LIGHT_INTENSITY,
-  LIGHT_DISTANCE,
-);
-const lightBottom = new THREE.PointLight(
-  0xffffff,
-  LIGHT_INTENSITY,
-  LIGHT_DISTANCE,
-);
-const lightLeft = new THREE.PointLight(
-  0xffffff,
-  LIGHT_INTENSITY,
-  LIGHT_DISTANCE,
-);
-const lightRight = new THREE.PointLight(
-  0xffffff,
-  LIGHT_INTENSITY,
-  LIGHT_DISTANCE,
-);
-
-const particlesCount = 8000;
-const particlesGeometry = new THREE.BufferGeometry();
-const positions = new Float32Array(particlesCount * 3);
-for (let i = 0; i < particlesCount * 3; i++) {
-  positions[i] = (Math.random() - 0.5) * 2;
-}
-particlesGeometry.setAttribute(
-  'position',
-  new THREE.Float32BufferAttribute(positions, 3),
-);
-const pointsMaterial = new THREE.PointsMaterial({
-  size: 2,
-  color: 'blue',
-});
-const particles = new THREE.Points(particlesGeometry, pointsMaterial);
-particles.scale.x = 2000;
-particles.scale.y = 1000;
-particles.scale.z = 1000;
-particles.position.x += 500;
-scene.add(particles);
-
-const CUBE_SIZE =
-  (performanceSettings.FFTSIZE / 2 / camera.getFilmWidth()) *
-  performanceSettings.CUBE_SIZE_K;
-const BARS_GAP = 0;
-
-const cubesParticlesCount = performanceSettings.BARS_PARTICLES_COUNT;
-const cubesParticlesGeometry = new THREE.BufferGeometry();
-const cubesParticlesPositions = new Float32Array(cubesParticlesCount * 3 * 2);
-
-const gridSize = Math.cbrt(cubesParticlesCount * 2);
-const spacing = 2 / (gridSize - 1);
-
-let index = 0;
-for (let x = 0; x < gridSize; x++) {
-  for (let y = 0; y < gridSize; y++) {
-    for (let z = 0; z < gridSize; z++) {
-      if (index >= cubesParticlesCount * 2) break;
-      // grid placement from -1 to 1
-      cubesParticlesPositions[index * 3] = x * spacing - 1;
-      cubesParticlesPositions[index * 3 + 1] = y * spacing - 1;
-      cubesParticlesPositions[index * 3 + 2] = z * spacing - 1;
-      // grid arrangement from -0.5 to 0.5
-      cubesParticlesPositions[index * 3 + 3] = x * spacing * 0.5 - 0.5;
-      cubesParticlesPositions[index * 3 + 4] = y * spacing * 0.5 - 0.5;
-      cubesParticlesPositions[index * 3 + 5] = z * spacing * 0.5 - 0.5;
-      index += 2;
-    }
-  }
-}
-cubesParticlesGeometry.setAttribute(
-  'position',
-  new THREE.Float32BufferAttribute(cubesParticlesPositions, 3),
-);
-
-const cubeMaterial = new THREE.PointsMaterial({
-  size: performanceSettings.BARS_PARTICLES_SIZE,
-});
-
-const cubes = [];
-for (let i = 0; i < performanceSettings.FFTSIZE; i++) {
-  cubes.push(new THREE.Points(cubesParticlesGeometry, cubeMaterial));
-}
-
-const startColor = getColorByAverageFrequency(cubes[0], 20, true);
-let posX = -BARS_GAP * cubes.length;
-for (let i = 0; i < cubes.length; i++) {
-  scene.add(cubes[i]);
-  cubes[i].material.setValues({
-    color: startColor,
-  });
-  cubes[i].position.x += i * CUBE_SIZE + posX;
-  posX += BARS_GAP;
-}
-
-camera.position.set(
-  cubes[Math.round(cubes.length / 2)].position.x,
-  cubes[Math.round(cubes.length / 2)].position.y,
-  performanceSettings.cameraZ,
-);
-lightTop.position.set(
-  cubes[Math.round(cubes.length / 2)].position.x,
-  cubes[Math.round(cubes.length / 2)].position.y + 300,
-  cubes[Math.round(cubes.length / 2)].position.z + 200,
-);
-lightBottom.position.set(
-  cubes[Math.round(cubes.length / 2)].position.x,
-  cubes[Math.round(cubes.length / 2)].position.y - 300,
-  cubes[Math.round(cubes.length / 2)].position.z + 200,
-);
-lightLeft.position.set(
-  cubes[0].position.x,
-  cubes[0].position.y + 250,
-  cubes[0].position.z + 200,
-);
-lightRight.position.set(
-  cubes[cubes.length - 1].position.x,
-  cubes[0].position.y + 250,
-  cubes[0].position.z + 200,
-);
-scene.add(lightTop, lightBottom, lightLeft, lightRight);
-
 const listener = new THREE.AudioListener();
 camera.add(listener);
 const audio = new THREE.Audio(listener);
 const analyser = new THREE.AudioAnalyser(audio, performanceSettings.FFTSIZE);
+
+////////////////////////////////////////////////////////////////////////////!
+
+const uniforms = {
+  u_time: { type: 'f', value: 0.0 },
+  u_frequency: { type: 'f', value: 0.0 },
+  u_kickThreshold: { type: 'f', value: 0.7 },
+  u_red: { type: 'f', value: 0.25 },
+  u_green: { type: 'f', value: 0.0 },
+  u_blue: { type: 'f', value: 1.0 },
+};
+
+const sphereMaterial = new THREE.ShaderMaterial({
+  uniforms,
+  vertexShader: document.getElementById('vertexshader').textContent,
+  fragmentShader: document.getElementById('fragmentshader').textContent,
+});
+
+const geo = new THREE.IcosahedronGeometry(8, 30);
+const mesh = new THREE.Mesh(geo, sphereMaterial);
+scene.add(mesh);
+mesh.material.wireframe = true;
+
+const particles = getParticleSystem({
+  camera,
+  parent: scene,
+  rate: 80.0,
+  texture: 'img/circle.png',
+});
 
 //--------INITIALIZATION--------//
 
@@ -248,7 +149,7 @@ const audioControls = {
   },
   stop: function () {
     audio.stop();
-    startTime = 0;
+    AudioStartTime = 0;
   },
   seek: 0,
   currentTime: '0:00',
@@ -258,11 +159,11 @@ const audioControls = {
 const pauseAudio = () => {
   audio.pause();
   audio.context.suspend();
-  startTime = audio.context.currentTime - startTime;
+  AudioStartTime = audio.context.currentTime - AudioStartTime;
 };
 
 const resumeAudio = () => {
-  playFrom(startTime);
+  playFrom(AudioStartTime);
   audio.context.resume();
 };
 
@@ -273,7 +174,7 @@ const playFrom = (time) => {
   audio.source.connect(audio.gain);
   audio.source.loop = true;
 
-  startTime = audio.context.currentTime - time;
+  AudioStartTime = audio.context.currentTime - time;
 
   audio.source.start(0, time);
   audio.isPlaying = true;
@@ -287,10 +188,10 @@ const formatTime = (time) => {
 
 const updateUI = () => {
   if (audio.buffer) {
-    const currentTime = audio.context.currentTime - startTime;
+    const currentTime = audio.context.currentTime - AudioStartTime;
 
     if (currentTime >= audio.buffer.duration) {
-      startTime = audio.context.currentTime;
+      AudioStartTime = audio.context.currentTime;
       audioControls.currentTime = '0:00';
       audioControls.seek = 0;
       seekController.updateDisplay();
@@ -310,16 +211,14 @@ const updateUI = () => {
 window.addEventListener('mousemove', (e) => {
   // if right mouse button clicked and mouse moving move camera along (x y) coordinates
   if (e.buttons === 2) {
-    let mouseX = 0;
+    // let mouseX = 0;
     const windowHalfX = window.innerWidth / 2;
     const windowHalfY = window.innerHeight / 2;
-    if (e.clientX < windowHalfX) {
-      mouseX = e.clientX - windowHalfX;
-    } else mouseX = (e.clientX - windowHalfX) * 2;
-    const mouseY = e.clientY - windowHalfY;
-    camera.position.x += (mouseX - camera.position.x) * 0.05;
-    camera.position.y += (-mouseY - camera.position.y) * 0.5;
-    camera.lookAt(cubes[Math.round(cubes.length / 2)].position);
+    const mouseX = (e.clientX - windowHalfX) * 0.03;
+    const mouseY = (e.clientY - windowHalfY) * 0.03;
+    camera.position.x += mouseX - camera.position.x;
+    camera.position.y += -mouseY - camera.position.y;
+    camera.lookAt(0, 0, 0);
   }
 });
 
@@ -327,7 +226,7 @@ window.addEventListener('contextmenu', (e) => e.preventDefault());
 
 // zoom by mouse wheel (z coordinate)
 window.addEventListener('wheel', (e) => {
-  const dz = e.deltaY * 0.15;
+  const dz = e.deltaY * 0.015;
   if (
     camera.position.z + dz > CAMERA_ZOOM_BOUNDARY[0] &&
     camera.position.z + dz < CAMERA_ZOOM_BOUNDARY[1]
@@ -338,9 +237,11 @@ window.addEventListener('wheel', (e) => {
 
 // For PC
 window.addEventListener('keydown', (e) => {
-  if (e.code === 'Space' && audio.source && audio.isPlaying) pauseAudio();
-  else if (e.code === 'Space' && audio.source && !audio.isPlaying)
+  if (e.code === 'Space' && audio.source && audio.isPlaying) {
+    pauseAudio();
+  } else if (e.code === 'Space' && audio.source && !audio.isPlaying) {
     resumeAudio();
+  }
 });
 
 // For Mobile
@@ -365,71 +266,58 @@ window.addEventListener('resize', () => {
 
 //--------ANIMATION--------//
 
+let DEFAULT_EQUALIZER_COLOR = {
+  r: 1,
+  g: 1,
+  b: 1,
+};
+let DEFAULT_PARTICLES_COLOR = {
+  r: 1,
+  g: 1,
+  b: 1,
+};
+const clock = new THREE.Clock();
+
 function animate() {
-  const frequencyData = analyser.getFrequencyData();
   const averageFrequency = analyser.getAverageFrequency();
 
-  // ! if we paint everything with the same color, then we can do 1 calculation, instead of calculating at each iteration
-  const barColor = getColorByAverageFrequency(
-    cubes[0],
+  const averageColor = getColorByAverageFrequency(
+    {
+      r: uniforms.u_red.value,
+      g: uniforms.u_green.value,
+      b: uniforms.u_blue.value,
+    },
     averageFrequency,
     audio.isPlaying,
   );
 
   /* ANIMATE BLOOM AND MAPPING EXPOSURE */
   if (audio.isPlaying && isDynamicBloomOn) {
-    bloomPass.strength = averageFrequency * 0.00225;
+    bloomPass.strength = averageFrequency * 0.001;
     renderer.toneMappingExposure = averageFrequency * 0.007;
   }
+  /* ANIMATE BLOOM AND MAPPING EXPOSURE */
 
-  /* ANIMATE PARTICLES */
-  particles.material.color = barColor;
-
-  particles.position.z = averageFrequency * averageFrequency * PULSATION;
-  const d = particles.position.z > 0 ? -1 : 1;
-  particles.scale.x = 2000 - Math.pow(particles.position.z, 2) * 0.005 * d;
-  particles.scale.y = 1000 - Math.pow(particles.position.z, 2) * 0.005 * d;
-  particles.scale.z = 1000 - Math.pow(particles.position.z, 2) * 0.005 * d;
-
-  if (averageFrequency >= DROP_THRESHOLD && audio.isPlaying) {
-    particles.position.x += Math.random() > 0.5 ? 1 : -1;
-    particles.position.y += Math.random() > 0.5 ? 1 : -1;
-  } else if (audio.isPlaying) {
-    particles.position.x += Math.random() > 0.5 ? 0.2 : -0.2;
-    particles.position.y += Math.random() > 0.5 ? 0.2 : -0.2;
+  /* ANIMATE SPHERE */
+  if (audio.isPlaying) {
+    const currentColor = isDynamicEqualizerColorOn
+      ? averageColor
+      : DEFAULT_EQUALIZER_COLOR;
+    uniforms.u_red.value = currentColor.r;
+    uniforms.u_green.value = currentColor.g;
+    uniforms.u_blue.value = currentColor.b;
   }
-  /* ANIMATE PARTICLES */
+  uniforms.u_time.value = clock.getElapsedTime();
+  uniforms.u_frequency.value = averageFrequency;
+  /* ANIMATE SPHERE */
 
-  /* ANIMATE BARS */
-  for (let i = 0; i < frequencyData.length; i++) {
-    cubes[i].material.setValues({
-      color: barColor,
-    });
-
-    let y =
-      CUBE_SIZE +
-      frequencyData[frequencyData.length - i - 1] *
-        performanceSettings.BARS_SIZE_SCALE;
-
-    let z =
-      CUBE_SIZE +
-      frequencyData[frequencyData.length - i - 1] *
-        performanceSettings.BARS_SIZE_SCALE;
-
-    const currentIndex = isEqualizerReversed ? frequencyData.length - i - 1 : i;
-
-    // left half
-    cubes[currentIndex].scale.y = y;
-    cubes[currentIndex].scale.z = z;
-
-    y = CUBE_SIZE + frequencyData[i] * performanceSettings.BARS_SIZE_SCALE;
-    z = CUBE_SIZE + frequencyData[i] * performanceSettings.BARS_SIZE_SCALE;
-
-    // right half
-    cubes[currentIndex + cubes.length / 2].scale.y = y;
-    cubes[currentIndex + cubes.length / 2].scale.z = z;
-  }
-  /* ANIMATE BARS */
+  particles.update(
+    0.05,
+    averageFrequency,
+    isDynamicParticlesColorOn ? averageColor : DEFAULT_PARTICLES_COLOR,
+    PARTICLES_SPEED,
+    PULSATION,
+  );
 
   updateUI();
   composer.render();
@@ -464,37 +352,45 @@ audioInput.addEventListener('change', (e) => {
     });
 
     filePickerController.name(file.name);
-    audio.startTime = audio.context.currentTime;
-    startTime = audio.context.currentTime;
+    audio.AudioStartTime = audio.context.currentTime;
+    AudioStartTime = audio.context.currentTime;
   }
 });
 document.body.appendChild(audioInput);
 
-const fileFolder = gui.addFolder('Audio');
-const filePickerController = fileFolder
+const filePickerController = gui
   .add({ click: () => audioInput.click() }, 'click')
   .name('Choose file');
 
 const effectsParams = {
-  reverseEqualizer: isEqualizerReversed,
   dynamicBloom: isDynamicBloomOn, // Dynamic changing bloom and mapping exposure frequency dependent
+  dynamicEqualizerColor: isDynamicEqualizerColorOn, // Dynamic changing equalizer color frequency dependent
+  dynamicParticlesColor: isDynamicParticlesColorOn, // Dynamic changing particles color frequency dependent
+  equalizerColor: DEFAULT_EQUALIZER_COLOR,
+  particlesColor: DEFAULT_PARTICLES_COLOR,
   dropThreshold: DROP_THRESHOLD,
-  barsSizeScale: performanceSettings.BARS_SIZE_SCALE,
-  pulsation: PULSATION / 0.001,
+  particlesSpeed: PARTICLES_SPEED,
+  pulsation: PULSATION,
   smoothing: 0.8,
 };
-const effectsFolder = gui.addFolder('Effects');
-effectsFolder
-  .add(effectsParams, 'reverseEqualizer')
-  .name('Reverse Equalizer')
-  .onChange((value) => {
-    isEqualizerReversed = value;
-  });
+const effectsFolder = gui.addFolder('Equalizer Effects');
 effectsFolder
   .add(effectsParams, 'dynamicBloom')
   .name('Dynamic bloom')
   .onChange((value) => {
     isDynamicBloomOn = value;
+  });
+effectsFolder
+  .add(effectsParams, 'dynamicEqualizerColor')
+  .name('Dynamic color')
+  .onChange((value) => {
+    isDynamicEqualizerColorOn = value;
+  });
+effectsFolder
+  .addColor(effectsParams, 'equalizerColor')
+  .name('Default equalizer color')
+  .onChange((color) => {
+    DEFAULT_EQUALIZER_COLOR = color;
   });
 effectsFolder
   .add(effectsParams, 'dropThreshold', 0, 200, 1)
@@ -503,24 +399,38 @@ effectsFolder
     DROP_THRESHOLD = value;
   });
 effectsFolder
-  .add(effectsParams, 'barsSizeScale', 0, 1)
-  .name('bars size scale')
-  .onChange((value) => {
-    performanceSettings.BARS_SIZE_SCALE = value;
-  });
-effectsFolder
-  .add(effectsParams, 'pulsation', -2, 2)
-  .name('pulsation')
-  .onChange((value) => {
-    PULSATION = value * 0.001;
-  });
-effectsFolder
   .add(effectsParams, 'smoothing', 0, 0.99, 0.01)
   .onChange((value) => {
     analyser.analyser.smoothingTimeConstant = value;
   });
 
-const toneMappingFolder = gui.addFolder('Tone mapping');
+const particlesEffectsFolder = gui.addFolder('Particles Effects');
+particlesEffectsFolder
+  .add(effectsParams, 'dynamicParticlesColor')
+  .name('Dynamic color')
+  .onChange((value) => {
+    isDynamicParticlesColorOn = value;
+  });
+particlesEffectsFolder
+  .addColor(effectsParams, 'particlesColor')
+  .name('Default equalizer color')
+  .onChange((color) => {
+    DEFAULT_PARTICLES_COLOR = color;
+  });
+particlesEffectsFolder
+  .add(effectsParams, 'particlesSpeed', 0, 2)
+  .name('acceleration')
+  .onChange((value) => {
+    PARTICLES_SPEED = value;
+  });
+particlesEffectsFolder
+  .add(effectsParams, 'pulsation', 0.1, 2.5)
+  .name('pulsation')
+  .onChange((value) => {
+    PULSATION = value;
+  });
+
+const toneMappingFolder = gui.addFolder('Tone Mapping');
 toneMappingFolder
   .add(
     toneMappingParams,
@@ -567,5 +477,4 @@ const seekController = controlsFolder
 
 controlsFolder.add(audioControls, 'currentTime').name('Current Time').listen();
 controlsFolder.add(audioControls, 'duration').name('Duration').listen();
-
 //--------GUI--------//
