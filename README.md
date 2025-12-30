@@ -1,6 +1,8 @@
 # [Audio visualizer](https://radzivonn.github.io/3D-visualizer) on three js
 
 ## Overview
+<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/fa2fbbad-8379-4487-aa69-ebed14400b09" />
+
 ![2025-12-30 21-22-52 remuxed](https://github.com/user-attachments/assets/e76f0681-99a7-49af-991c-d8898e4b5205)
 
 ## Settings
