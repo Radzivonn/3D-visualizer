@@ -1,17 +1,17 @@
 # [Audio visualizer](https://radzivonn.github.io/3D-visualizer) on three js
 
 ## Overview
-![image](https://github.com/user-attachments/assets/594139d5-5fa9-4d75-9d14-b23cfc8e6b6f)
+![2025-12-30 21-22-52 remuxed](https://github.com/user-attachments/assets/e76f0681-99a7-49af-991c-d8898e4b5205)
 
 ## Settings
-![image](https://github.com/user-attachments/assets/72f767ff-cd78-4a84-a019-47b0da06764a)
+<img width="335" height="971" alt="image" src="https://github.com/user-attachments/assets/4fdd16d1-516f-4c2f-b78f-f3ed5217abb0" />
 
 * Audio
   * Choose audio file button
-  * Duration from start of audio
-* Effects
-  * Drop threshold - threshold value of the average frequency at which the color of the visualizer sharply turns red
-  * Scale of bars max size along the y and z axes
+  * Duration from start of audio\
+  * Audio controls
+* Equalizer Effects
+* Particles Effects
 * Tone mapping
   * Tone mapping - type of tone mapping
   * Tone mapping exposure
